@@ -1,0 +1,137 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  phone     String   @unique
+  password  String
+  name      String
+  role      String   @default("SUPERVISOR") // ADMIN, SUPERVISOR
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  workers       Worker[]   @relation("SupervisorWorkers")
+  batches       Batch[]
+  payments      Payment[]
+  auditLogs     AuditLog[]
+  lockedWorkers Worker[]   @relation("LockedByUser")
+
+  @@map("users")
+}
+
+model Worker {
+  id              String        @id @default(cuid())
+  workerId        String        @unique  // e.g. W-001
+  name            String
+  phone           String?
+  upiId           String?
+  paymentMethod   String        @default("UPI") // UPI, CASH, BANK
+  balance         Float         @default(0)
+  lifetimePassed  Int           @default(0)
+  lifetimeFailed  Int           @default(0)
+  status          String        @default("AVAILABLE") // AVAILABLE, LOCKED, COOLDOWN
+  cooldownUntil   DateTime?
+  lockExpiresAt   DateTime?
+  notes           String?
+  isActive        Boolean       @default(true)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  // Relations
+  supervisorId    String?
+  supervisor      User?         @relation("SupervisorWorkers", fields: [supervisorId], references: [id])
+  lockedById      String?
+  lockedBy        User?         @relation("LockedByUser", fields: [lockedById], references: [id])
+
+  batches         Batch[]
+  payments        Payment[]
+  history         History[]
+
+  @@map("workers")
+}
+
+model Batch {
+  id          String      @id @default(cuid())
+  progress    Int         @default(0)
+  maxProgress Int         @default(5)
+  status      String      @default("ACTIVE") // ACTIVE, FINISHED, CANCELLED
+  passed      Int?
+  failed      Int?
+  startedAt   DateTime    @default(now())
+  finishedAt  DateTime?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  // Relations
+  workerId      String
+  worker        Worker @relation(fields: [workerId], references: [id])
+  supervisorId  String
+  supervisor    User   @relation(fields: [supervisorId], references: [id])
+
+  @@map("batches")
+}
+
+model Payment {
+  id        String   @id @default(cuid())
+  amount    Float
+  note      String?
+  paidAt    DateTime @default(now())
+  createdAt DateTime @default(now())
+
+  // Relations
+  workerId  String
+  worker        Worker @relation(fields: [workerId], references: [id])
+  paidById  String
+  paidBy    User   @relation(fields: [paidById], references: [id])
+
+  @@map("payments")
+}
+
+model History {
+  id        String   @id @default(cuid())
+  action    String   // batch_started, batch_finished, payment_made, locked, unlocked, cooldown_started, cooldown_expired
+  details   String?  // Storing serialized JSON string for SQLite compatibility
+  createdAt DateTime @default(now())
+
+  // Relations
+  workerId  String
+  worker    Worker @relation(fields: [workerId], references: [id])
+
+  @@map("history")
+}
+
+model Setting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String
+  label     String?
+  type      String   @default("string") // string, number, boolean
+  updatedAt DateTime @updatedAt
+
+  @@map("settings")
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  action    String
+  target    String?
+  details   String?  // Storing serialized JSON string for SQLite compatibility
+  createdAt DateTime @default(now())
+
+  // Relations
+  userId    String?
+  user      User?   @relation(fields: [userId], references: [id])
+
+  @@map("audit_logs")
+}

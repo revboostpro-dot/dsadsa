@@ -1,0 +1,154 @@
+// Production schema for Railway/PostgreSQL deployment
+// For local development, use schema.prisma (SQLite)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  SUPERVISOR
+}
+
+enum WorkerStatus {
+  AVAILABLE
+  LOCKED
+  COOLDOWN
+}
+
+enum BatchStatus {
+  ACTIVE
+  FINISHED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  UPI
+  CASH
+  BANK
+}
+
+model User {
+  id        String   @id @default(cuid())
+  phone     String   @unique
+  password  String
+  name      String
+  role      Role     @default(SUPERVISOR)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  workers       Worker[]   @relation("SupervisorWorkers")
+  batches       Batch[]
+  payments      Payment[]
+  auditLogs     AuditLog[]
+  lockedWorkers Worker[]   @relation("LockedByUser")
+
+  @@map("users")
+}
+
+model Worker {
+  id             String        @id @default(cuid())
+  workerId       String        @unique
+  name           String
+  phone          String?
+  upiId          String?
+  paymentMethod  PaymentMethod @default(UPI)
+  balance        Float         @default(0)
+  lifetimePassed Int           @default(0)
+  lifetimeFailed Int           @default(0)
+  status         WorkerStatus  @default(AVAILABLE)
+  cooldownUntil  DateTime?
+  lockExpiresAt  DateTime?
+  notes          String?
+  isActive       Boolean       @default(true)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  supervisorId String?
+  supervisor   User?   @relation("SupervisorWorkers", fields: [supervisorId], references: [id])
+  lockedById   String?
+  lockedBy     User?   @relation("LockedByUser", fields: [lockedById], references: [id])
+
+  batches  Batch[]
+  payments Payment[]
+  history  History[]
+
+  @@map("workers")
+}
+
+model Batch {
+  id          String      @id @default(cuid())
+  progress    Int         @default(0)
+  maxProgress Int         @default(5)
+  status      BatchStatus @default(ACTIVE)
+  passed      Int?
+  failed      Int?
+  startedAt   DateTime    @default(now())
+  finishedAt  DateTime?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  workerId     String
+  worker       Worker @relation(fields: [workerId], references: [id])
+  supervisorId String
+  supervisor   User   @relation(fields: [supervisorId], references: [id])
+
+  @@map("batches")
+}
+
+model Payment {
+  id        String   @id @default(cuid())
+  amount    Float
+  note      String?
+  paidAt    DateTime @default(now())
+  createdAt DateTime @default(now())
+
+  workerId String
+  worker   Worker @relation(fields: [workerId], references: [id])
+  paidById String
+  paidBy   User   @relation(fields: [paidById], references: [id])
+
+  @@map("payments")
+}
+
+model History {
+  id        String   @id @default(cuid())
+  action    String
+  details   Json?
+  createdAt DateTime @default(now())
+
+  workerId String
+  worker   Worker @relation(fields: [workerId], references: [id])
+
+  @@map("history")
+}
+
+model Setting {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String
+  label     String?
+  type      String   @default("string")
+  updatedAt DateTime @updatedAt
+
+  @@map("settings")
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  action    String
+  target    String?
+  details   Json?
+  createdAt DateTime @default(now())
+
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id])
+
+  @@map("audit_logs")
+}
