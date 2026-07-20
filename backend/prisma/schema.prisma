@@ -6,8 +6,31 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  SUPERVISOR
+}
+
+enum WorkerStatus {
+  AVAILABLE
+  LOCKED
+  COOLDOWN
+}
+
+enum BatchStatus {
+  ACTIVE
+  FINISHED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  UPI
+  CASH
+  BANK
 }
 
 model User {
@@ -15,7 +38,7 @@ model User {
   phone     String   @unique
   password  String
   name      String
-  role      String   @default("SUPERVISOR") // ADMIN, SUPERVISOR
+  role      Role     @default(SUPERVISOR)
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -36,11 +59,11 @@ model Worker {
   name            String
   phone           String?
   upiId           String?
-  paymentMethod   String        @default("UPI") // UPI, CASH, BANK
+  paymentMethod   PaymentMethod @default(UPI)
   balance         Float         @default(0)
   lifetimePassed  Int           @default(0)
   lifetimeFailed  Int           @default(0)
-  status          String        @default("AVAILABLE") // AVAILABLE, LOCKED, COOLDOWN
+  status          WorkerStatus  @default(AVAILABLE)
   cooldownUntil   DateTime?
   lockExpiresAt   DateTime?
   notes           String?
@@ -65,7 +88,7 @@ model Batch {
   id          String      @id @default(cuid())
   progress    Int         @default(0)
   maxProgress Int         @default(5)
-  status      String      @default("ACTIVE") // ACTIVE, FINISHED, CANCELLED
+  status      BatchStatus @default(ACTIVE)
   passed      Int?
   failed      Int?
   startedAt   DateTime    @default(now())
@@ -91,7 +114,7 @@ model Payment {
 
   // Relations
   workerId  String
-  worker        Worker @relation(fields: [workerId], references: [id])
+  worker    Worker @relation(fields: [workerId], references: [id])
   paidById  String
   paidBy    User   @relation(fields: [paidById], references: [id])
 
@@ -101,7 +124,7 @@ model Payment {
 model History {
   id        String   @id @default(cuid())
   action    String   // batch_started, batch_finished, payment_made, locked, unlocked, cooldown_started, cooldown_expired
-  details   String?  // Storing serialized JSON string for SQLite compatibility
+  details   Json?
   createdAt DateTime @default(now())
 
   // Relations
@@ -126,7 +149,7 @@ model AuditLog {
   id        String   @id @default(cuid())
   action    String
   target    String?
-  details   String?  // Storing serialized JSON string for SQLite compatibility
+  details   Json?
   createdAt DateTime @default(now())
 
   // Relations
