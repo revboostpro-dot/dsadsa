@@ -12,7 +12,7 @@
     "prisma:studio": "prisma studio",
     "seed": "node prisma/seed.js",
     "setup": "prisma generate && prisma migrate deploy && node prisma/seed.js",
-    "migrate:prod": "prisma generate --schema=prisma/schema.pg.prisma && prisma migrate deploy --schema=prisma/schema.pg.prisma",
+    "migrate:prod": "prisma generate && prisma migrate deploy",
     "build": "npm run migrate:prod && node prisma/seed.js || true"
   },
   "dependencies": {
