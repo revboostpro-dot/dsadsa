@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Phone, Lock, Eye, EyeOff, Zap } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { authApi } from '../services/api';
 import useStore from '../store/useStore';
 
 export default function LoginPage() {
@@ -12,23 +11,24 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = (e) => {
     e.preventDefault();
-    if (!form.phone || !form.password) {
-      toast.error('Please fill in all fields');
-      return;
-    }
     setLoading(true);
-    try {
-      const res = await authApi.login(form);
-      setAuth(res.data.data.user, res.data.data.token);
-      toast.success(`Welcome, ${res.data.data.user.name}!`);
+    
+    // Simulate successful login instantly by setting a mock admin session
+    setTimeout(() => {
+      const mockUser = {
+        id: 'mock-admin-id',
+        name: 'System Admin',
+        phone: form.phone || '9000000000',
+        role: 'ADMIN',
+      };
+      
+      setAuth(mockUser, 'mock-jwt-token-auth-bypassed');
+      toast.success('Signed in successfully! (Developer Bypass Mode)');
       navigate('/');
-    } catch (err) {
-      toast.error(err.response?.data?.error || 'Login failed');
-    } finally {
       setLoading(false);
-    }
+    }, 400);
   };
 
   return (
@@ -54,7 +54,10 @@ export default function LoginPage() {
       {/* Form */}
       <div className="relative z-10 w-full max-w-sm">
         <div className="glass p-6 shadow-elevated">
-          <h2 className="text-xl font-semibold text-text-primary mb-6">Sign In</h2>
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-xl font-semibold text-text-primary">Sign In</h2>
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20">Bypass Mode</span>
+          </div>
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             {/* Phone */}
             <div className="relative">
@@ -64,11 +67,10 @@ export default function LoginPage() {
                 type="tel"
                 inputMode="numeric"
                 className="input pl-11"
-                placeholder="Phone Number"
+                placeholder="Any Phone Number"
                 value={form.phone}
                 onChange={(e) => setForm({ ...form, phone: e.target.value })}
                 autoComplete="tel"
-                required
               />
             </div>
 
@@ -79,11 +81,10 @@ export default function LoginPage() {
                 id="password"
                 type={showPassword ? 'text' : 'password'}
                 className="input pl-11 pr-11"
-                placeholder="Password"
+                placeholder="Any Password"
                 value={form.password}
                 onChange={(e) => setForm({ ...form, password: e.target.value })}
                 autoComplete="current-password"
-                required
               />
               <button
                 type="button"
@@ -100,21 +101,14 @@ export default function LoginPage() {
               className="btn-primary w-full flex items-center justify-center gap-2 mt-2"
               disabled={loading}
             >
-              {loading ? (
-                <svg className="animate-spin w-5 h-5" viewBox="0 0 24 24" fill="none">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
-                </svg>
-              ) : (
-                <Zap className="w-4 h-4" />
-              )}
-              {loading ? 'Signing in...' : 'Sign In'}
+              <Zap className="w-4 h-4" />
+              {loading ? 'Entering...' : 'Instant Sign In'}
             </button>
           </form>
         </div>
 
         <p className="text-center text-text-muted text-xs mt-6">
-          QR Worker Manager v1.0 • Secure Login
+          QR Worker Manager v1.0 • Auth-Free Testing Mode
         </p>
       </div>
     </div>

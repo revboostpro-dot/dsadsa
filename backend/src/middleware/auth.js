@@ -1,45 +1,41 @@
-const jwt = require('jsonwebtoken');
 const { prisma } = require('../config/db');
 
 /**
- * Middleware: require a valid JWT
+ * Middleware: Bypass auth and mock an active Admin user
  */
 async function requireAuth(req, res, next) {
   try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader?.startsWith('Bearer ')) {
-      return res.status(401).json({ success: false, error: 'No token provided' });
-    }
-
-    const token = authHeader.slice(7);
-    const payload = jwt.verify(token, process.env.JWT_SECRET);
-
-    const user = await prisma.user.findUnique({
-      where: { id: payload.userId },
-      select: { id: true, name: true, phone: true, role: true, isActive: true },
+    // Look up the first admin user in the database to keep relations intact,
+    // otherwise fallback to a static mock object.
+    let user = await prisma.user.findFirst({
+      where: { role: 'ADMIN', isActive: true },
+      select: { id: true, name: true, phone: true, role: true, isActive: true }
     });
 
-    if (!user || !user.isActive) {
-      return res.status(401).json({ success: false, error: 'User not found or inactive' });
+    if (!user) {
+      user = await prisma.user.findFirst({
+        select: { id: true, name: true, phone: true, role: true, isActive: true }
+      });
     }
 
-    req.user = user;
+    req.user = user || {
+      id: 'mock-admin-id',
+      name: 'System Admin',
+      phone: '9000000000',
+      role: 'ADMIN',
+      isActive: true
+    };
+    
     next();
   } catch (err) {
-    if (err.name === 'TokenExpiredError') {
-      return res.status(401).json({ success: false, error: 'Token expired' });
-    }
-    return res.status(401).json({ success: false, error: 'Invalid token' });
+    next(err);
   }
 }
 
 /**
- * Middleware: require ADMIN role
+ * Middleware: require ADMIN role (always allowed since auth is bypassed)
  */
 function requireAdmin(req, res, next) {
-  if (req.user?.role !== 'ADMIN') {
-    return res.status(403).json({ success: false, error: 'Admin access required' });
-  }
   next();
 }
 
